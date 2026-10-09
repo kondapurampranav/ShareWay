@@ -1,0 +1,353 @@
+// This is your Prisma schema file.
+// Learn more: https://pris.ly/d/prisma-schema
+//
+// DATABASE: MySQL 8+
+// ORM: Prisma
+//
+// SCHEMA LEAD: Member 1
+// RULE: Any change to this file requires a PR reviewed by ALL FOUR members.
+//
+// Entity Ownership:
+//   User, Community, Membership         → Member 1
+//   Commute, RecurringSchedule          → Member 2
+//   RideRequest, RideOffer,
+//   Booking, ContributionProposal       → Member 3
+//   Notification, Rating, Report        → Member 4
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  MEMBER
+  COMMUNITY_ADMIN
+  PLATFORM_ADMIN
+}
+
+enum MembershipStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum CommuteStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum VehicleType {
+  BIKE
+  CAR
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  COMPLETED
+  EXPIRED
+}
+
+enum RideRequestStatus {
+  OPEN
+  OFFER_RECEIVED
+  BOOKING_CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+
+enum RideOfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ContributionProposalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum NotificationType {
+  BOOKING_REQUEST
+  BOOKING_ACCEPTED
+  BOOKING_REJECTED
+  BOOKING_CANCELLED
+  OFFER_RECEIVED
+  OFFER_ACCEPTED
+  OFFER_REJECTED
+  CONTRIBUTION_PROPOSAL
+  CONTRIBUTION_ACCEPTED
+  CONTRIBUTION_REJECTED
+  COMMUTE_REMINDER
+  TRIP_STATUS_UPDATE
+}
+
+enum ReportStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEMBER 1 — Auth & Community
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id             String   @id @default(uuid())
+  name           String
+  email          String   @unique
+  passwordHash   String
+  phone          String?
+  role           Role     @default(MEMBER)
+  isActive       Boolean  @default(true)
+  avatarUrl      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  memberships          Membership[]
+  commutes             Commute[]
+  rideRequests         RideRequest[]
+  rideOffers           RideOffer[]
+  bookingsAsPassenger  Booking[]              @relation("PassengerBookings")
+  bookingsAsDriver     Booking[]              @relation("DriverBookings")
+  ratingsGiven         Rating[]               @relation("RatingsGiven")
+  ratingsReceived      Rating[]               @relation("RatingsReceived")
+  reportsSubmitted     Report[]               @relation("ReportsSubmitted")
+  reportsReceived      Report[]               @relation("ReportsReceived")
+  notifications        Notification[]
+
+  @@map("users")
+}
+
+model Community {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?  @db.Text
+  domain      String?  // e.g. "@dsce.edu.in" for email verification
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships Membership[]
+
+  @@map("communities")
+}
+
+model Membership {
+  id          String           @id @default(uuid())
+  userId      String
+  communityId String
+  status      MembershipStatus @default(PENDING)
+  joinedAt    DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id])
+  community Community @relation(fields: [communityId], references: [id])
+
+  @@unique([userId, communityId])
+  @@map("memberships")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEMBER 2 — Commutes & Recurring Schedules
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Commute {
+  id                  String        @id @default(uuid())
+  driverId            String
+  origin              String
+  destination         String
+  departureTime       DateTime
+  vehicleType         VehicleType
+  totalSeats          Int
+  availableSeats      Int
+  contributionPerSeat Decimal       @db.Decimal(10, 2)
+  status              CommuteStatus @default(SCHEDULED)
+  notes               String?       @db.Text
+  recurringScheduleId String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  driver            User               @relation(fields: [driverId], references: [id])
+  recurringSchedule RecurringSchedule? @relation(fields: [recurringScheduleId], references: [id])
+  bookings          Booking[]
+
+  @@index([origin, destination])
+  @@index([departureTime])
+  @@index([driverId])
+  @@map("commutes")
+}
+
+model RecurringSchedule {
+  id            String   @id @default(uuid())
+  driverId      String
+  origin        String
+  destination   String
+  departureTime String   // "HH:MM" format
+  vehicleType   VehicleType
+  totalSeats    Int
+  contributionPerSeat Decimal  @db.Decimal(10, 2)
+  daysOfWeek    String   // JSON array e.g. "[1,2,3,4,5]" (1=Mon)
+  isActive      Boolean  @default(true)
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  driver   User      @relation(fields: [driverId], references: [id])
+  commutes Commute[]
+
+  @@map("recurring_schedules")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEMBER 3 — Ride Requests, Offers, Bookings, Contributions
+// ─────────────────────────────────────────────────────────────────────────────
+
+model RideRequest {
+  id                  String            @id @default(uuid())
+  passengerId         String
+  origin              String
+  destination         String
+  desiredDeparture    DateTime
+  maxContribution     Decimal           @db.Decimal(10, 2)
+  vehiclePreference   VehicleType?
+  status              RideRequestStatus @default(OPEN)
+  notes               String?           @db.Text
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  passenger  User        @relation(fields: [passengerId], references: [id])
+  rideOffers RideOffer[]
+
+  @@index([origin, destination])
+  @@index([desiredDeparture])
+  @@map("ride_requests")
+}
+
+model RideOffer {
+  id              String          @id @default(uuid())
+  driverId        String
+  rideRequestId   String
+  commuteId       String?         // optional: link to a specific published commute
+  proposedContrib Decimal         @db.Decimal(10, 2)
+  message         String?         @db.Text
+  status          RideOfferStatus @default(PENDING)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  driver      User        @relation(fields: [driverId], references: [id])
+  rideRequest RideRequest @relation(fields: [rideRequestId], references: [id])
+
+  @@map("ride_offers")
+}
+
+model Booking {
+  id                 String        @id @default(uuid())
+  commuteId          String
+  passengerId        String
+  driverId           String
+  status             BookingStatus @default(PENDING)
+  agreedContribution Decimal       @db.Decimal(10, 2)
+  seatsBooked        Int           @default(1)
+  cancelledAt        DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  commute               Commute[]               @relation(fields: [commuteId], references: [id])
+  passenger             User                    @relation("PassengerBookings", fields: [passengerId], references: [id])
+  driver                User                    @relation("DriverBookings", fields: [driverId], references: [id])
+  contributionProposals ContributionProposal[]
+  ratings               Rating[]
+
+  @@index([commuteId])
+  @@index([passengerId])
+  @@index([driverId])
+  @@map("bookings")
+}
+
+model ContributionProposal {
+  id          String                     @id @default(uuid())
+  bookingId   String
+  proposedBy  String                     // userId
+  amount      Decimal                    @db.Decimal(10, 2)
+  status      ContributionProposalStatus @default(PENDING)
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@map("contribution_proposals")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEMBER 4 — Notifications, Ratings, Reports
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String           @db.Text
+  isRead    Boolean          @default(false)
+  metadata  Json?            // flexible payload (bookingId, commuteId, etc.)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model Rating {
+  id         String   @id @default(uuid())
+  bookingId  String
+  raterId    String
+  rateeId    String
+  score      Int      // 1–5
+  review     String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  rater   User    @relation("RatingsGiven",    fields: [raterId], references: [id])
+  ratee   User    @relation("RatingsReceived", fields: [rateeId], references: [id])
+
+  @@unique([bookingId, raterId])   // one rating per rater per booking
+  @@map("ratings")
+}
+
+model Report {
+  id           String       @id @default(uuid())
+  reporterId   String
+  reportedId   String
+  reason       String
+  description  String?      @db.Text
+  status       ReportStatus @default(OPEN)
+  adminNotes   String?      @db.Text
+  resolvedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  reporter User @relation("ReportsSubmitted", fields: [reporterId], references: [id])
+  reported User @relation("ReportsReceived",  fields: [reportedId], references: [id])
+
+  @@map("reports")
+}
