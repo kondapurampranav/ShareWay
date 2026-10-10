@@ -271,7 +271,7 @@ model Booking {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  commute               Commute[]               @relation(fields: [commuteId], references: [id])
+  commute               Commute                 @relation(fields: [commuteId], references: [id])
   passenger             User                    @relation("PassengerBookings", fields: [passengerId], references: [id])
   driver                User                    @relation("DriverBookings", fields: [driverId], references: [id])
   contributionProposals ContributionProposal[]
