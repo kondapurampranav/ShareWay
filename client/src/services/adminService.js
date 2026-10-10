@@ -1,12 +1,17 @@
 // client/src/services/adminService.js
-// OWNER: See module map in README.
+// OWNER: Member 1
+// Client API service for Admin Dashboard operations.
 
 import api from './api';
 
-// TODO: implement API calls
-// Example:
-// export const list = (params) => api.get('/admins', { params });
-// export const create = (data) => api.post('/admins', data);
-// export const getById = (id) => api.get(`/admins/${id}`);
-// export const update = (id, data) => api.put(`/admins/${id}`, data);
-// export const remove = (id) => api.delete(`/admins/${id}`);
+export const getStats = (params) => api.get('/admin/stats', { params });
+
+export const getMembers = (params) => api.get('/admin/members', { params });
+
+export const updateMember = (id, data) => api.patch(`/admin/members/${id}`, data);
+
+export const getReports = (params) => api.get('/admin/reports', { params });
+
+export const updateReport = (id, data) => api.patch(`/admin/reports/${id}`, data);
+
+export const getCommutes = (params) => api.get('/admin/commutes', { params });
