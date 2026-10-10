@@ -1,12 +1,17 @@
 // client/src/services/authService.js
-// OWNER: See module map in README.
+// OWNER: Member 1
+// Client API service for authentication and user account calls.
 
 import api from './api';
 
-// TODO: implement API calls
-// Example:
-// export const list = (params) => api.get('/auths', { params });
-// export const create = (data) => api.post('/auths', data);
-// export const getById = (id) => api.get(`/auths/${id}`);
-// export const update = (id, data) => api.put(`/auths/${id}`, data);
-// export const remove = (id) => api.delete(`/auths/${id}`);
+export const login = (credentials) => api.post('/auth/login', credentials);
+
+export const register = (userData) => api.post('/auth/register', userData);
+
+export const logout = () => api.post('/auth/logout');
+
+export const getMe = () => api.get('/users/me');
+
+export const updateMe = (data) => api.put('/users/me', data);
+
+export const getCommunities = () => api.get('/communities');

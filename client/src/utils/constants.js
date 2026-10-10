@@ -2,6 +2,19 @@
 // Keep in sync with server/src/config/constants.js
 // OWNER: Member 1
 
+export const ROLES = {
+  MEMBER: 'MEMBER',
+  COMMUNITY_ADMIN: 'COMMUNITY_ADMIN',
+  PLATFORM_ADMIN: 'PLATFORM_ADMIN',
+};
+
+export const MEMBERSHIP_STATUS = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  SUSPENDED: 'SUSPENDED',
+};
+
 export const BOOKING_STATUS = {
   PENDING: 'PENDING',
   ACCEPTED: 'ACCEPTED',
