@@ -62,8 +62,10 @@ export default function LoginPage() {
     } catch (err) {
       const msg =
         err.response?.data?.message ||
-        (err.response?.data?.errors?.[0]?.msg) ||
-        'Login failed. Please check your credentials.';
+        err.response?.data?.errors?.[0]?.msg ||
+        (!err.response
+          ? 'Cannot connect to backend server. Ensure the backend is running at http://localhost:5000'
+          : 'Login failed. Please check your credentials.');
       setError(msg);
     } finally {
       setLoading(false);
