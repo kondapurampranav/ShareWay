@@ -1,14 +1,9 @@
-// server/src/services/commute.service.js
-// OWNER: Member 2
-// Business logic for driver commute management and booking rules.
-
 const prisma = require("../config/db");
 const ApiError = require("../utils/ApiError");
 const { COMMUTE_STATUS, BOOKING_STATUS } = require("../config/constants");
 
-/**
- * Creates a new commute for the authenticated driver.
- */
+
+// Creates a new commute for the authenticated driver.
 const createCommute = async (driverId, commuteData) => {
   const {
     origin,
@@ -21,28 +16,26 @@ const createCommute = async (driverId, commuteData) => {
     recurringScheduleId,
   } = commuteData;
 
-  const commute = await prisma.commute.create({
-    data: {
-      driverId,
-      origin,
-      destination,
-      departureTime: new Date(departureTime),
-      vehicleType,
-      totalSeats,
-      availableSeats: totalSeats,
-      contributionPerSeat,
-      status: COMMUTE_STATUS.SCHEDULED,
-      notes: notes || null,
-      recurringScheduleId: recurringScheduleId || null,
-    },
-  });
-
+  // const commute = await prisma.commute.create({
+  //   data: {
+  //     driverId,
+  //     origin,
+  //     destination,
+  //     departureTime: new Date(departureTime),
+  //     vehicleType,
+  //     totalSeats,
+  //     availableSeats: totalSeats,
+  //     contributionPerSeat,
+  //     status: COMMUTE_STATUS.SCHEDULED,
+  //     notes: notes || null,
+  //     recurringScheduleId: recurringScheduleId || null,
+  //   },
+  // });
   return commute;
 };
 
-/**
- * Retrieves all commutes created by the authenticated driver.
- */
+
+// Retrieves all commutes created by the authenticated driver.
 const getDriverCommutes = async (driverId, filters = {}) => {
   const where = { driverId };
 
@@ -69,9 +62,8 @@ const getDriverCommutes = async (driverId, filters = {}) => {
   return commutes;
 };
 
-/**
- * Retrieves a single commute by ID.
- */
+
+// Retrieves a single commute by ID.
 const getCommuteById = async (id) => {
   const commute = await prisma.commute.findUnique({
     where: { id },
@@ -104,9 +96,8 @@ const getCommuteById = async (id) => {
   return commute;
 };
 
-/**
- * Updates a driver's own commute, ensuring booking rules and seat capacities are respected.
- */
+
+// Updates a driver's own commute, ensuring booking rules and seat capacities are respected.
 const updateCommute = async (id, driverId, updateData) => {
   const commute = await prisma.commute.findUnique({
     where: { id },
@@ -164,9 +155,8 @@ const updateCommute = async (id, driverId, updateData) => {
   return updatedCommute;
 };
 
-/**
- * Cancels a driver's own commute and cancels any active bookings.
- */
+
+// Cancels a driver's own commute and cancels any active bookings.
 const cancelCommute = async (id, driverId) => {
   const commute = await prisma.commute.findUnique({
     where: { id },
@@ -211,7 +201,57 @@ const cancelCommute = async (id, driverId) => {
   return cancelledCommute;
 };
 
+
+// Searches available scheduled commutes by origin, destination, travel date, and seat count.
+const searchCommutes = async (filters = {}) => {
+  const { origin, destination, date, seats = 1 } = filters;
+
+  const where = {
+    status: COMMUTE_STATUS.SCHEDULED,
+    availableSeats: { gte: Number(seats) || 1 },
+    departureTime: { gt: new Date() },
+  };
+
+  if (origin && origin.trim()) {
+    where.origin = { contains: origin.trim() };
+  }
+
+  if (destination && destination.trim()) {
+    where.destination = { contains: destination.trim() };
+  }
+
+  if (date) {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    where.departureTime = {
+      gte: startOfDay,
+      lte: endOfDay,
+    };
+  }
+
+  const commutes = await prisma.commute.findMany({
+    where,
+    orderBy: { departureTime: "asc" },
+    include: {
+      driver: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatarUrl: true,
+        },
+      },
+    },
+  });
+
+  return commutes;
+};
+
 module.exports = {
+  searchCommutes,
+  search: searchCommutes,
   createCommute,
   getDriverCommutes,
   getCommuteById,
