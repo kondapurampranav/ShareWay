@@ -1,20 +1,30 @@
-// server/src/routes/commute.routes.js
-// OWNER: Member 2
-
-const { Router } = require('express');
-const authenticate = require('../middleware/authenticate');
-const validate = require('../middleware/validate');
-const { commuteValidator } = require('../validators/commute.validators');
-const commuteController = require('../controllers/commute.controller');
+const { Router } = require("express");
+const authenticate = require("../middleware/authenticate");
+const validate = require("../middleware/validate");
+const {
+  createCommuteValidator,
+  updateCommuteValidator,
+  commuteIdParamValidator,
+} = require("../validators/commute.validators");
+const { createBookingValidator } = require("../validators/booking.validators");
+const commuteController = require("../controllers/commute.controller");
+const bookingController = require("../controllers/booking.controller");
 
 const router = Router();
 
-router.get('/',                     authenticate, commuteController.list);
-router.post('/',                    authenticate, commuteValidator, validate, commuteController.create);
-router.get('/:id',                  authenticate, commuteController.getById);
-router.put('/:id',                  authenticate, commuteController.update);
-router.delete('/:id',               authenticate, commuteController.cancel);
-router.get('/:id/requests',         authenticate, commuteController.listRequests);   // incoming seat requests
-router.get('/:id/bookings',         authenticate, commuteController.listBookings);
+// routes for passenger
+router.get("/search", commuteController.search);
+
+// Passenger request seat on commute
+router.post("/:id/bookings", createBookingValidator, validate, bookingController.create);
+
+// routes for driver
+router.get("/", commuteController.list);
+router.post("/",createCommuteValidator, validate, commuteController.create);
+router.get("/:id", commuteIdParamValidator, validate, commuteController.getById);
+router.put("/:id", updateCommuteValidator, validate, commuteController.update);
+router.delete("/:id", commuteIdParamValidator, validate, commuteController.cancel);
+router.get("/:id/requests", commuteIdParamValidator, validate, commuteController.listRequests);
+router.get("/:id/bookings", commuteIdParamValidator, validate, commuteController.listBookings);
 
 module.exports = router;
