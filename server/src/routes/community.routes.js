@@ -9,7 +9,10 @@ const communityController = require('../controllers/community.controller');
 
 const router = Router();
 
-router.get('/',                                  authenticate, communityController.list);
+// Public: allows unauthenticated users to view community list during registration
+router.get('/',                                  communityController.list);
+
+// Authenticated routes
 router.post('/:id/join',                         authenticate, communityController.join);
 router.get('/:id/members',                       authenticate, communityController.listMembers);
 router.patch('/memberships/:membershipId',        authenticate, authorize(ROLES.COMMUNITY_ADMIN, ROLES.PLATFORM_ADMIN), communityController.updateMembership);
